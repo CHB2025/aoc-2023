@@ -31,10 +31,6 @@ impl<'a> Schematic<'a> {
         }))
     }
 
-    pub fn numbers(&'a self) -> impl Iterator<Item = u32> + 'a {
-        self.number_ind().map(|n| n.2)
-    }
-
     pub fn part_numbers(&'a self) -> impl Iterator<Item = u32> + 'a {
         self.number_ind()
             .filter_map(|v| if self.is_part_num(v) { Some(v.2) } else { None })
@@ -58,6 +54,37 @@ impl<'a> Schematic<'a> {
 
     fn get(&'a self, x: usize, y: usize) -> Option<char> {
         self.raw[y].chars().nth(x)
+    }
+
+    fn get_num(&'a self, x: usize, y: usize) -> Option<(usize, usize, u32)> {
+        //start by going backwards, then go forwards, picking up full number
+        if !self.get(x, y).is_some_and(|c| c.is_numeric()) {
+            return None;
+        }
+        let mut start = x;
+        // Not particularly efficient
+        while start > 0 && self.get(start - 1, y).is_some_and(|c| c.is_numeric()) {
+            start -= 1;
+        }
+
+        let mut end = x;
+        while end < self.width && self.get(end + 1, y).is_some_and(|c| c.is_numeric()) {
+            end += 1;
+        }
+
+        Some((start, y, self.raw[y][start..=end].parse().unwrap()))
+    }
+
+    pub fn gears(&'a self) -> impl Iterator<Item = Gear> + 'a {
+        self.raw.iter().enumerate().flat_map(move |(y, &line)| {
+            line.chars().enumerate().filter_map(move |(x, c)| {
+                if c == '*' {
+                    Gear::from_star(self, (x, y))
+                } else {
+                    None
+                }
+            })
+        })
     }
 }
 
@@ -110,6 +137,43 @@ where
         }
 
         Some((x, y, num))
+    }
+}
+
+pub struct Gear(u32, u32);
+
+impl Gear {
+    pub fn from_star(sc: &Schematic, (x, y): (usize, usize)) -> Option<Self> {
+        let (mut first, mut second) = (None, None);
+        for y in y.saturating_sub(1)..sc.raw.len().min(y + 2) {
+            let mut s_x = x.saturating_sub(1);
+            while s_x < sc.width.min(x + 2) {
+                if let Some(num) = sc.get_num(s_x, y) {
+                    if first.is_none() {
+                        first = Some(num.2);
+                    } else if second.is_none() {
+                        second = Some(num.2);
+                    } else {
+                        // Three numbers around this star
+                        return None;
+                    }
+                    // Move to the end of the number
+                    s_x = num.0 + num.2.to_string().len();
+                } else {
+                    s_x += 1;
+                }
+            }
+        }
+
+        if let Some((first, second)) = first.zip(second) {
+            Some(Gear(first, second))
+        } else {
+            None
+        }
+    }
+
+    pub fn ratio(&self) -> u32 {
+        self.0 * self.1
     }
 }
 
