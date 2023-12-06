@@ -1,16 +1,25 @@
 use almanac::Almanac;
+use almanac2::Almanac2;
 
 mod almanac;
+mod almanac2;
 
 fn main() {
     let input = include_str!("input.txt");
     println!("Part one: {}", part_one(input));
+    println!("Part two: {}", part_two(input));
 }
 
 fn part_one(input: &str) -> u64 {
     let almanac: Almanac = input.parse().unwrap();
 
     almanac.locations().min().unwrap()
+}
+
+fn part_two(input: &str) -> u64 {
+    let a2: Almanac2 = input.parse().unwrap();
+
+    a2.locations().min().unwrap()
 }
 
 #[cfg(test)]
@@ -56,5 +65,9 @@ humidity-to-location map:
     #[test]
     fn part_one_basic() {
         assert_eq!(part_one(BASIC_INPUT), 35);
+    }
+    #[test]
+    fn part_two_basic() {
+        assert_eq!(part_two(BASIC_INPUT), 46);
     }
 }
