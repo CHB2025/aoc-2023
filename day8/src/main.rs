@@ -5,17 +5,19 @@ type Map<'a> = HashMap<&'a str, (&'a str, &'a str)>;
 
 fn main() {
     let input = include_str!("input.txt");
-    println!("Part one: {}", part_one(input));
+    println!("Part one: {}", part_one(input, "AAA"));
+    println!("Part two: {}", part_two(input));
 }
 
-fn part_one(input: &str) -> usize {
+fn part_one(input: &str, start: &str) -> usize {
     let (dirs, map) = parse_map(input);
 
     let mut steps = 0;
-    let mut cur = "AAA";
-    let dest = "ZZZ";
+    let mut cur = start;
+    // let dest = "ZZZ";
 
-    while cur != dest {
+    while !(cur.ends_with('Z') && steps != 0) {
+        // Reach ZZZ from AAA even in this case
         cur = match dirs[steps % dirs.len()] {
             0 => map.get(cur).unwrap().0,
             1 => map.get(cur).unwrap().1,
@@ -24,6 +26,31 @@ fn part_one(input: &str) -> usize {
         steps += 1;
     }
 
+    steps
+}
+
+/// Stepping by one is way too slow
+/// **A -> **Z -> **Z
+///      a      b
+/// res = a1 + b1x when equal to  a2 + b2x,...
+/// an = bn
+/// This equality is not expressly stated in the problem, but it is the case in my test data
+/// So find each a, then find LCM
+fn part_two(input: &str) -> usize {
+    let (_, map) = parse_map(input);
+
+    let multiples: Box<[usize]> = map
+        .keys()
+        .cloned()
+        .filter(|s| s.ends_with('A'))
+        .map(|s| part_one(input, s))
+        .collect();
+
+    let max = *multiples.iter().max().unwrap();
+    let mut steps = max;
+    while multiples.iter().any(|m| steps % m != 0) {
+        steps += max;
+    }
     steps
 }
 
@@ -76,7 +103,24 @@ ZZZ = (ZZZ, ZZZ)"
 
     #[test]
     fn part_one_basic() {
-        assert_eq!(part_one(INPUT_1), 2);
-        assert_eq!(part_one(INPUT_2), 6);
+        assert_eq!(part_one(INPUT_1, "AAA"), 2);
+        assert_eq!(part_one(INPUT_2, "AAA"), 6);
+    }
+
+    #[test]
+    fn part_two_basic() {
+        let input = {
+            "LR
+
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)"
+        };
+        assert_eq!(part_two(input), 6);
     }
 }
