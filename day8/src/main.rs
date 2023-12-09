@@ -39,19 +39,16 @@ fn part_one(input: &str, start: &str) -> usize {
 fn part_two(input: &str) -> usize {
     let (_, map) = parse_map(input);
 
-    let multiples: Box<[usize]> = map
-        .keys()
-        .cloned()
-        .filter(|s| s.ends_with('A'))
-        .map(|s| part_one(input, s))
-        .collect();
-
-    let max = *multiples.iter().max().unwrap();
-    let mut steps = max;
-    while multiples.iter().any(|m| steps % m != 0) {
-        steps += max;
-    }
-    steps
+    map.keys()
+        .filter_map(|s| {
+            if s.ends_with('A') {
+                Some(part_one(input, s))
+            } else {
+                None
+            }
+        })
+        .reduce(lcm)
+        .unwrap()
 }
 
 fn parse_map(input: &str) -> (Directions, Map) {
@@ -75,6 +72,22 @@ fn parse_map(input: &str) -> (Directions, Map) {
         assert!(map.insert(key.trim(), dests).is_none());
     }
     (dirs.collect(), map)
+}
+
+fn gcd(mut a: usize, mut b: usize) -> usize {
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    a
+}
+
+fn lcm(a: usize, b: usize) -> usize {
+    if a == 0 || b == 0 {
+        return 0;
+    }
+    a * b / gcd(a, b)
 }
 
 #[cfg(test)]
@@ -122,5 +135,15 @@ ZZZ = (ZZZ, ZZZ)"
 XXX = (XXX, XXX)"
         };
         assert_eq!(part_two(input), 6);
+    }
+
+    #[test]
+    fn gcd_lcm() {
+        assert_eq!(gcd(10, 5), 5);
+        assert_eq!(gcd(8, 6), 2);
+        assert_eq!(gcd(12, 33), 3);
+
+        assert_eq!(lcm(10, 4), 20);
+        assert_eq!(lcm(4, 3), 12);
     }
 }
