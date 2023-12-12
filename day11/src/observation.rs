@@ -18,13 +18,36 @@ impl Observation {
         }
         sum
     }
+
+    pub fn expand(&mut self, mult: usize) {
+        // Sort vertically
+        self.galaxies.sort_unstable_by_key(|g| g.1);
+
+        let mut skips = 0;
+        let mut last_y = 0;
+        self.galaxies.iter_mut().for_each(|g| {
+            skips += (g.1 - last_y).saturating_sub(1); // 1 or 0 = no skip
+            last_y = g.1;
+            g.1 += skips * (mult - 1);
+        });
+
+        self.galaxies.sort_unstable_by_key(|g| g.0);
+
+        let mut skips = 0;
+        let mut last_x = 0;
+        self.galaxies.iter_mut().for_each(|g| {
+            skips += (g.0 - last_x).saturating_sub(1);
+            last_x = g.0;
+            g.0 += skips * (mult - 1);
+        });
+    }
 }
 
 impl FromStr for Observation {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut galaxies = s
+        let galaxies = s
             .lines()
             .enumerate()
             .flat_map(|(y, l)| {
@@ -35,24 +58,6 @@ impl FromStr for Observation {
                 })
             })
             .collect::<Result<Vec<(usize, usize)>, anyhow::Error>>()?;
-        // Currently sorted vertically
-        let mut skips = 0;
-        let mut last_y = 0;
-        galaxies.iter_mut().for_each(|g| {
-            skips += (g.1 - last_y).saturating_sub(1); // 1 or 0 = no skip
-            last_y = g.1;
-            g.1 += skips
-        });
-
-        galaxies.sort_unstable_by_key(|g| g.0);
-
-        let mut skips = 0;
-        let mut last_x = 0;
-        galaxies.iter_mut().for_each(|g| {
-            skips += (g.0 - last_x).saturating_sub(1);
-            last_x = g.0;
-            g.0 += skips
-        });
 
         Ok(Observation { galaxies })
     }
