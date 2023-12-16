@@ -1,4 +1,4 @@
-use std::{num::ParseIntError, str::FromStr};
+use std::{collections::HashMap, num::ParseIntError, str::FromStr};
 
 use anyhow::anyhow;
 
@@ -37,6 +37,16 @@ impl Condition {
     }
 }
 
+fn condition_match(base: &[Condition], test: &[Condition]) -> bool {
+    assert_eq!(base.len(), test.len());
+    for (b, t) in base.iter().zip(test.iter()) {
+        if *b != Condition::Unknown && b != t {
+            return false;
+        }
+    }
+    true
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct RowCondition {
     conditions: Box<[Condition]>,
@@ -44,50 +54,60 @@ pub struct RowCondition {
 }
 
 impl RowCondition {
-    pub fn possible_combinations(&self) -> u32 {
+    pub fn possible_combinations(&self) -> u64 {
         let mut combo = vec![Condition::Good; self.conditions.len()];
 
-        self.combo_rec(&mut combo, 0, &self.sequences)
+        let mut cache = HashMap::new();
+        self.combo_rec(&mut cache, &mut combo, 0, &self.sequences)
     }
 
-    fn combo_rec(&self, combo: &mut [Condition], filled: usize, sequence: &[usize]) -> u32 {
+    fn combo_rec(
+        &self,
+        cache: &mut HashMap<(usize, usize), u64>,
+        combo: &mut [Condition],
+        filled: usize,
+        sequence: &[usize],
+    ) -> u64 {
         if sequence.is_empty() || filled >= combo.len() {
-            if self.is_partial_match(combo) {
-                return 1; // exactly one way to fill
+            // Check the rest to see if all good is ok
+            if condition_match(
+                &self.conditions[filled.min(combo.len())..],
+                &combo[filled.min(combo.len())..],
+            ) {
+                return 1;
             } else {
                 return 0;
             }
         }
 
         let mut count = 0;
+        let space_remaining = combo.len() - filled;
+        // Could take this out of the loop, but usually not too long?
         let space_needed: usize = sequence.iter().sum::<usize>() + sequence.len() - 1;
+        let (seq, rest) = sequence.split_first().expect("checked size");
 
-        for i in 0..=(combo.len() - (space_needed + filled)) {
-            let (seq, rest) = sequence.split_first().expect("checked size");
+        for i in 0..=(space_remaining - space_needed) {
+            let fill_range = filled + i..filled + i + seq;
+            let check_range = filled..combo.len().min(filled + i + seq + 1);
+            combo[fill_range.clone()].fill(Condition::Bad);
 
-            let fill = filled + i;
-
-            combo[fill..fill + seq].fill(Condition::Bad);
-            if self.is_partial_match(&combo[..(fill + seq + 1).min(combo.len())]) {
-                count += Self::combo_rec(self, combo, filled + i + seq + 1, rest);
-                // +1 for empty space
+            // Only really need to check the current section (filled..filled+i+seq)
+            // since previous section is known to match
+            if condition_match(&self.conditions[check_range.clone()], &combo[check_range]) {
+                let key = (rest.len(), filled + i + seq);
+                let c = cache.get(&key);
+                let c = if let Some(v) = c {
+                    *v
+                } else {
+                    let c = self.combo_rec(cache, combo, filled + i + seq + 1, rest);
+                    cache.insert(key, c);
+                    c
+                };
+                count += c;
             }
-            combo[fill..fill + seq].fill(Condition::Good);
+            combo[fill_range].fill(Condition::Good);
         }
         count
-    }
-
-    // checks if given sequence could match the known conditions.
-    // Doesn't worry about checking if the sequence is possible
-    // Only checks up to the length of the test sequence
-    fn is_partial_match(&self, test: &[Condition]) -> bool {
-        assert!(self.conditions.len() >= test.len());
-        for (i, test) in test.iter().enumerate() {
-            if self.conditions[i] != Condition::Unknown && self.conditions[i] != *test {
-                return false;
-            }
-        }
-        true
     }
 }
 

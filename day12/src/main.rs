@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{iter, str::FromStr};
 
 use condition::RowCondition;
 
@@ -7,18 +7,41 @@ mod condition;
 fn main() {
     let input = include_str!("input.txt");
     println!("Part one: {}", part_one(input));
-    println!("Part one: {}", part_two(input));
+    println!("Part two: {}", part_two(input));
 }
 
-fn part_one(input: &str) -> u32 {
+fn part_one(input: &str) -> u64 {
     input
         .lines()
         .map(|l| RowCondition::from_str(l).unwrap().possible_combinations())
         .sum()
 }
-fn part_two(input: &str) -> u32 {
-    let _ = input;
-    0
+fn part_two(input: &str) -> u64 {
+    let folds = 5;
+    input
+        .lines()
+        .map(|l| {
+            let (s1, s2) = l.split_once(' ').unwrap();
+            let mut out = iter::repeat(s1)
+                .take(folds)
+                .map(|s| s.to_owned())
+                .collect::<Vec<_>>()
+                .join("?");
+            out += " ";
+            out += iter::repeat(s2)
+                .take(folds)
+                .map(|s| s.to_owned())
+                .collect::<Vec<_>>()
+                .join(",")
+                .as_str();
+            out
+        })
+        .map(|l| {
+            RowCondition::from_str(l.as_str())
+                .unwrap()
+                .possible_combinations()
+        })
+        .sum()
 }
 
 #[cfg(test)]
@@ -66,5 +89,10 @@ mod tests {
     fn part_one_first() {
         let input = "?##?.??.???.. 3,2,2";
         assert_eq!(part_one(input), 4);
+    }
+
+    #[test]
+    fn part_two_full() {
+        assert_eq!(part_two(INPUT), 525152);
     }
 }
